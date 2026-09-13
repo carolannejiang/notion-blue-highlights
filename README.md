@@ -1,8 +1,8 @@
 # notion-blue-highlights
 
-Highlight text in blue anywhere in your Notion workspace, and it shows up in
-one database, with a link back to where it came from. Think of it as a
-"clippings" inbox that you fill just by highlighting while you read or write.
+A scheduled script that scans your Notion pages for any text highlighted in
+blue and copies each snippet into a single Notion database, with a link back
+to its source page, so highlighting becomes a way of clipping.
 
 A single dependency-free Python script talks to the official Notion API and
 runs on a schedule. Each run is **incremental**: it only scans pages edited
