@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Incrementally sync blue-highlighted text from Notion into the Blue Highlights DB.
+"""Incrementally sync highlighted text of one color from Notion into a Notion database.
 
-Scans pages edited since the last run, extracts rich text whose color is
-blue_background (and whole blocks colored blue_background), and upserts rows
-into the Notion database keyed by block id + span index. Rows whose highlight
+Scans pages edited since the last run, extracts rich text whose color matches
+"color" in config.json (default blue_background), plus whole blocks of that
+color, and upserts rows into the database keyed by block id + span index. Rows whose highlight
 disappeared from a rescanned page are marked Removed.
 
-Config: config.json (next to this file)  {"token": "...", "database_id": "..."}
+Config: config.json (next to this file)  {"token": "...", "database_id": "...", "color": "..."}
 State:  state.json  (next to this file)  {"last_sync": "<iso datetime>"}
 
 Usage:
@@ -30,6 +30,9 @@ API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 OVERLAP = timedelta(minutes=10)  # rescan window to survive clock skew / missed runs
 MAX_DEPTH = 10
+DEFAULT_COLOR = "blue_background"
+COLORS = {f"{c}_background" for c in
+          ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red")}
 
 
 def load_json(path, default):
@@ -89,15 +92,15 @@ def plain(rich_list):
     return "".join(r.get("plain_text", "") for r in rich_list)
 
 
-def block_highlights(block):
-    """Return the blue-highlighted text runs in one block, in document order."""
+def block_highlights(block, color):
+    """Return the text runs highlighted in `color` in one block, in document order."""
     btype = block["type"]
     obj = block.get(btype) or {}
     rich_lists = obj.get("cells", []) if btype == "table_row" else (
         [obj["rich_text"]] if isinstance(obj.get("rich_text"), list) else []
     )
     found = []
-    if obj.get("color") == "blue_background" and rich_lists:
+    if obj.get("color") == color and rich_lists:
         text = " ".join(filter(None, (plain(rl).strip() for rl in rich_lists)))
         if text:
             found.append(text)
@@ -105,7 +108,7 @@ def block_highlights(block):
         for rl in rich_lists:
             run = ""
             for seg in rl:
-                if seg.get("annotations", {}).get("color") == "blue_background":
+                if seg.get("annotations", {}).get("color") == color:
                     run += seg.get("plain_text", "")
                 elif run:
                     found.append(run.strip())
@@ -115,15 +118,15 @@ def block_highlights(block):
     return [t for t in found if t]
 
 
-def scan_page(token, page_id):
-    """Walk a page's block tree; return {key: text} of blue highlights."""
+def scan_page(token, page_id, color):
+    """Walk a page's block tree; return {key: text} of highlights in `color`."""
     highlights = {}
 
     def walk(block_id, depth):
         if depth > MAX_DEPTH:
             return
         for block in paginate(token, "GET", f"/blocks/{block_id}/children?page_size=100"):
-            for i, text in enumerate(block_highlights(block)):
+            for i, text in enumerate(block_highlights(block, color)):
                 highlights[f"{block['id']}#{i}"] = text
             if block.get("has_children") and block["type"] not in ("child_page", "child_database"):
                 walk(block["id"], depth + 1)
@@ -160,9 +163,9 @@ def row_properties(text, key, page_url, page_id, status, today):
     }
 
 
-def sync_page(token, database_id, page):
+def sync_page(token, database_id, page, color):
     page_url = page["url"]
-    found = scan_page(token, page["id"])
+    found = scan_page(token, page["id"], color)
     rows = existing_rows(token, database_id, page_url)
     if not found and not rows:
         return 0
@@ -200,7 +203,7 @@ def create_db(token, config, parent_page_id):
     """Create the highlights database under a page and save its id to config.json."""
     db = request(token, "POST", "/databases", {
         "parent": {"type": "page_id", "page_id": parent_page_id},
-        "title": [{"text": {"content": "Blue Highlights"}}],
+        "title": [{"text": {"content": "Highlights"}}],
         "properties": DB_PROPERTIES,
     })
     config["database_id"] = db["id"]
@@ -219,6 +222,10 @@ def main():
         return
     if not database_id or database_id.startswith("PASTE"):
         print("config.json has no database_id; run: sync.py --create-db <parent page id>")
+        return
+    color = config.get("color", DEFAULT_COLOR)
+    if color not in COLORS:
+        print(f"config.json: unknown color {color!r}; choose one of {sorted(COLORS)}")
         return
     state = load_json(STATE_PATH, {})
     since = None
@@ -244,7 +251,7 @@ def main():
         if page["id"].replace("-", "") in exclude:
             continue
         try:
-            changes += sync_page(token, database_id, page)
+            changes += sync_page(token, database_id, page, color)
             scanned += 1
         except Exception as e:  # noqa: BLE001 - keep going past a bad page
             print(f"error on {page.get('url')}: {e}", file=sys.stderr)

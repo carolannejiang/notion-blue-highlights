@@ -1,8 +1,8 @@
 # notion-blue-highlights
 
-A scheduled script that scans your Notion pages for any text highlighted in
-blue and copies each snippet into a single Notion database, with a link back
-to its source page, so highlighting becomes a way of clipping.
+A scheduled script that scans your Notion pages for any text highlighted in a
+color you choose and copies each snippet into a single Notion database, with a
+link back to its source page, so highlighting becomes a way of clipping.
 
 A single dependency-free Python script talks to the official Notion API and
 runs on a schedule. Each run is **incremental**: it only scans pages edited
@@ -10,8 +10,8 @@ since the last run, so it stays fast even on a large workspace.
 
 ## How it works
 
-- Finds rich text (and whole blocks) colored `blue_background` on every page
-  the integration can access.
+- Finds rich text (and whole blocks) highlighted in the configured color on
+  every page the integration can access. The default is blue.
 - Upserts rows into a Notion database, keyed by `block_id#span_index`. Re-runs
   never duplicate, and edited highlights update their row in place.
 - Highlights deleted from a page get their row flipped to **Removed** instead
@@ -29,7 +29,11 @@ install.
    [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
    with *Read*, *Insert*, and *Update content* capabilities. Copy its token.
 2. **Configure**: `cp config.example.json config.json`, paste the token in,
-   then `chmod 600 config.json`. It is gitignored.
+   then `chmod 600 config.json`. It is gitignored. Set `color` to the
+   highlight color to collect: one of `gray`, `brown`, `orange`, `yellow`,
+   `green`, `blue`, `purple`, `pink`, or `red`, each with a `_background`
+   suffix (for example `yellow_background`). Only one color per database;
+   run a second checkout with its own config to collect another.
 3. **Create the target database.** Pick (or make) a Notion page to hold it,
    connect the integration to that page (page `•••` menu → Connections), then:
 
@@ -38,7 +42,7 @@ install.
    ```
 
    The page ID is the 32-hex string at the end of the page URL. This creates a
-   "Blue Highlights" database with the right schema and writes its ID into
+   "Highlights" database with the right schema and writes its ID into
    `config.json`.
 
    (To build it by hand instead, the properties are: `Highlight` (title),
@@ -76,8 +80,9 @@ seconds for fixed-interval runs). Output goes to `sync.log` in the repo.
 
 ## Notes
 
-- To collect a different color, change `blue_background` in `sync.py`
-  (Notion colors: `yellow_background`, `green_background`, etc.).
+- Changing `color` in `config.json` does not retroactively remove rows of
+  the old color; delete `state.json` and rescan, and old rows flip to
+  Removed.
 - Delete `state.json` to force a full rescan.
 - Coverage is exactly the set of pages connected to the integration. A `404`
   in the log for a page means it was deleted, moved, or disconnected.
