@@ -2,7 +2,7 @@
 # Install the launchd job for this checkout (macOS). Re-run after moving the repo.
 set -e
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-LABEL=com.notion-blue-highlights
+LABEL=com.notion-highlight-collector
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 mkdir -p "$HOME/Library/LaunchAgents"

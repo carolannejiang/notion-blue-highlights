@@ -1,4 +1,4 @@
-# notion-blue-highlights
+# notion-highlight-collector
 
 A scheduled script that scans your Notion pages for any text highlighted in a
 color you choose and copies each snippet into a single Notion database, with a
@@ -68,7 +68,7 @@ install.
 
 This writes the launchd plist with the path to this checkout and loads it.
 The schedule runs at 3 PM, 6 PM, and 12 AM local time; edit
-`StartCalendarInterval` in `com.notion-blue-highlights.plist` and re-run
+`StartCalendarInterval` in `com.notion-highlight-collector.plist` and re-run
 `install.sh` to change it (or swap in `StartInterval` with a number of
 seconds for fixed-interval runs). Output goes to `sync.log` in the repo.
 
