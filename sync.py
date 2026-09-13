@@ -6,8 +6,13 @@ blue_background (and whole blocks colored blue_background), and upserts rows
 into the Notion database keyed by block id + span index. Rows whose highlight
 disappeared from a rescanned page are marked Removed.
 
-Config: ~/notion-highlights/config.json  {"token": "...", "database_id": "..."}
-State:  ~/notion-highlights/state.json   {"last_sync": "<iso datetime>"}
+Config: config.json (next to this file)  {"token": "...", "database_id": "..."}
+State:  state.json  (next to this file)  {"last_sync": "<iso datetime>"}
+
+Usage:
+  sync.py                        incremental sync
+  sync.py --create-db PAGE_ID    create the target database under PAGE_ID and
+                                 write its id into config.json
 """
 
 import json
@@ -179,11 +184,41 @@ def sync_page(token, database_id, page):
     return changes
 
 
+DB_PROPERTIES = {
+    "Highlight": {"title": {}},
+    "Note": {"rich_text": {}},
+    "Page": {"rich_text": {}},
+    "Source page": {"url": {}},
+    "Block ID": {"rich_text": {}},
+    "Status": {"select": {"options": [{"name": "Active", "color": "green"}, {"name": "Removed", "color": "gray"}]}},
+    "Last seen": {"date": {}},
+    "Captured": {"created_time": {}},
+}
+
+
+def create_db(token, config, parent_page_id):
+    """Create the highlights database under a page and save its id to config.json."""
+    db = request(token, "POST", "/databases", {
+        "parent": {"type": "page_id", "page_id": parent_page_id},
+        "title": [{"text": {"content": "Blue Highlights"}}],
+        "properties": DB_PROPERTIES,
+    })
+    config["database_id"] = db["id"]
+    CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n")
+    print(f"created database {db['url']}\nsaved database_id to {CONFIG_PATH}")
+
+
 def main():
     config = load_json(CONFIG_PATH, {})
     token, database_id = config.get("token", ""), config.get("database_id", "")
-    if not token or token.startswith("PASTE") or not database_id:
+    if not token or token.startswith("PASTE"):
         print("config.json has no token yet; nothing to do")
+        return
+    if len(sys.argv) == 3 and sys.argv[1] == "--create-db":
+        create_db(token, config, sys.argv[2].replace("-", ""))
+        return
+    if not database_id or database_id.startswith("PASTE"):
+        print("config.json has no database_id; run: sync.py --create-db <parent page id>")
         return
     state = load_json(STATE_PATH, {})
     since = None

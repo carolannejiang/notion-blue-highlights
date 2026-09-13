@@ -7,7 +7,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/bin/python3</string>
-		<string>/Users/Benjamin/notion-highlights/sync.py</string>
+		<string>__REPO_DIR__/sync.py</string>
 	</array>
 	<key>StartCalendarInterval</key>
 	<array>
@@ -31,8 +31,8 @@
 		</dict>
 	</array>
 	<key>StandardOutPath</key>
-	<string>/Users/Benjamin/notion-highlights/sync.log</string>
+	<string>__REPO_DIR__/sync.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/Benjamin/notion-highlights/sync.log</string>
+	<string>__REPO_DIR__/sync.log</string>
 </dict>
 </plist>
